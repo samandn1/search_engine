@@ -124,7 +124,7 @@ def process_html(html):
     return tokenize(text)
 
 
-def build_index(folder_path, offload = 1000,limit=None):    # LIMIT PARAM IS JUST FOR TESTING REMOVE LATER
+def build_index(folder_path, offload = 1000):
     inverted_index = InvertedIndex()
     # list to keep track of the partial index files
     partial_index_file = []  
@@ -142,12 +142,6 @@ def build_index(folder_path, offload = 1000,limit=None):    # LIMIT PARAM IS JUS
         # add the document's tokens to the inverted index
         inverted_index.add_posting(url, docid, token_counts)
         last_doc_offloaded += 1
-
-
-        # JUST FOR TESTING: just want to test the function with the first 10 docs in DEV
-        # comment/delete these 2 lines in final submission
-        if limit is not None and len(inverted_index.doc) >= limit:
-            break
     
     return inverted_index, partial_index_file
 
@@ -157,13 +151,6 @@ def offload_index(inverted_index, partial_index_file):
     partial_index_file.append(path)
     inverted_index.save_documents()
     inverted_index.clear() 
-
-
-def print_stats(num_docs, inverted_index, index_file):
-    size_kb = os.path.getsize(index_file) / 1024 # divide by 1024 to convert from bytes -> KB
-    print("Number of indexed documents: ", num_docs)
-    print("Number of unique tokens: ", len(inverted_index))
-    print(f"Index size on disk: {size_kb} KB")
 
 def report(num_docs, inverted_index, index_file):
     # divide by 1024 to convert  bytes to KB
@@ -176,52 +163,10 @@ def report(num_docs, inverted_index, index_file):
         f.write(f"Index size: {size:.2f} KB\n")
 
 
-#testing
-def test_read_data(folder_path):
-    # this is just to test the json reading
-    # will delete later
-    for docid, url, content in read_data(folder_path):
-        print("Document ID: ", docid)
-        print("URL: ", url)
-        print("Content: ", content[:100])
-        print("--------------------------------")
-
-        if docid == 5:
-            break
-
-def test_saving_index():
-    inverted_index = {
-        "cat": [Posting(1, 1, {"title": 1}), Posting(2, 2, {"h1": 2})],
-        "dog": [Posting(3, 3, {"h2": 3}), Posting(1, 1, {"bold": 1}), Posting(4, 4, {"h1": 4})]
-    }
-
-    save_index(inverted_index, "index.txt")
-    print("Unique tokens:", len(inverted_index))
-    print(f"Index size: {os.path.getsize('index.txt') / 1024:.2f} KB")
-
-
-
 if __name__ == "__main__":
-    # Temporary test for HTML parsing and tokenization
-    sample_html = """
-    <html>
-        <head><title>Learning Python</title></head>
-        <body>
-            <h1>Programming Classes</h1>
-            <p>Students are learning programming!</p>
-        </body>
-    </html>
-    """
-    test_read_data("DEV")
-    print("Processed tokens: ", process_html(sample_html))
-    
-    inverted_index, partial_index_files = build_index("DEV", 500, limit=10)   # limit param is just for testing. remove limit value in a final run
-   
+    inverted_index, partial_index_files = build_index("DEV")
+    inverted_index.save_index("index.txt")
     inverted_index.save_documents()
 
-    print_stats(
-        len(inverted_index.doc),
-        inverted_index.index,
-        "index.txt"
-    )
+    report(len(inverted_index.doc), inverted_index.index, "index.txt")
 
