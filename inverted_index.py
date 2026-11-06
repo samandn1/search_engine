@@ -45,6 +45,10 @@ class InvertedIndex:
             # add the posting to the list of postings for the token
             self.index[token].append(posting)
 
+    def save_documents(self):
+        with open("doc.json", "w", encoding="utf-8") as f:
+            json.dump(self.doc,f)
+
 
 
 
