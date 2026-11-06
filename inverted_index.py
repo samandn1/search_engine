@@ -1,6 +1,10 @@
 import os
 import json
+import re
+from bs4 import BeautifulSoup
+from nltk.stem import PorterStemmer
 
+stemmer = PorterStemmer()
 # To Do:
 # Fetch all local documents 
 # Parse json and extract text
@@ -50,6 +54,27 @@ def read_data(folder_path):
                 docid += 1
             except (OSError, ValueError) as e:
                 print(f"Error reading {filepath}: {e}")
+def tokenize(text):
+    # Extract all alphanumeric sequences
+    tokens = re.findall(r"[a-zA-Z0-9]+", text.lower())
+
+    # Stem every token (including stop words)
+    return [stemmer.stem(token) for token in tokens]
+
+
+def process_html(html):
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Remove non-visible content
+    for tag in soup(["script", "style"]):
+        tag.decompose()
+
+    # Extract readable text
+    text = soup.get_text(separator=" ", strip=True)
+
+    # Tokenize and stem
+    return tokenize(text)
+
 
 def test_read_data(folder_path):
     # this is just to test the json reading
@@ -64,3 +89,15 @@ def test_read_data(folder_path):
             break
 
 test_read_data("DEV")
+# Temporary test for HTML parsing and tokenization
+sample_html = """
+<html>
+    <head><title>Learning Python</title></head>
+    <body>
+        <h1>Programming Classes</h1>
+        <p>Students are learning programming!</p>
+    </body>
+</html>
+"""
+
+print("Processed tokens:", process_html(sample_html))
