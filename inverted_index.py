@@ -48,7 +48,25 @@ class InvertedIndex:
     def save_documents(self):
         with open("doc.json", "w", encoding="utf-8") as f:
             json.dump(self.doc,f)
+    
+    def save_index(self, filename):
+        with open(filename, "w", encoding="utf-8") as f:
+            # loop through every token and its posting list
+            for token, postings in sorted(self.index.items()):
+                posting_list = []
+                # sort the postings by docid (least to greatest) for the boolean querys later
+                # loop through every Posting object for this token
+                for posting in sorted(postings, key=lambda p: p.docid):
+                    # use json.dumps to convert fields dictionary to a compact string
+                    fields = json.dumps(posting.fields, separators=(",", ":"))
+                    # format: docid:frequency:fields
+                    posting_data = f"{posting.docid}:{posting.freq}:{fields}"
+                    posting_list.append(posting_data)
 
+                # write token and its postings
+                # each line in the file will be for one token like below
+                # token docid:frequency:fields docid:frequency:fields ...
+                f.write(token + " " + " ".join(posting_list) + "\n")
 
 
 
@@ -103,57 +121,29 @@ def process_html(html):
     return tokenize(text)
 
 
-def test_read_data(folder_path):
-    # this is just to test the json reading
-    # will delete later
+def build_index(folder_path, limit=None):    # LIMIT PARAM IS JUST FOR TESTING REMOVE LATER
+    inverted_index = InvertedIndex()
+
     for docid, url, content in read_data(folder_path):
-        print("Document ID: ", docid)
-        print("URL: ", url)
-        print("Content: ", content[:100])
-        print("--------------------------------")
+        tokens = process_html(content)
+        token_counts = {}      # dictionary to keep track of each token's freq {"token": 1}
+       
+        for token in tokens:
+            if token not in token_counts:  # create a new key value pair for a new token
+                token_counts[token] = 0
+            token_counts[token] += 1       # increment the freq
+        
+        # add the document's tokens to the inverted index
+        inverted_index.add_posting(url, docid, token_counts)
 
-        if docid == 5:
+
+        # JUST FOR TESTING: just want to test the function with the first 10 docs in DEV
+        # comment/delete these 2 lines in final submission
+        if limit is not None and len(inverted_index.doc) >= limit:
             break
+    
+    return inverted_index
 
-# Temporary test for HTML parsing and tokenization
-sample_html = """
-<html>
-    <head><title>Learning Python</title></head>
-    <body>
-        <h1>Programming Classes</h1>
-        <p>Students are learning programming!</p>
-    </body>
-</html>
-"""
-
-def save_index(inverted_index, filename):
-    with open(filename, "w", encoding="utf-8") as f:
-        # loop through every token and its posting list
-        for token, postings in sorted(inverted_index.items()):
-            posting_list = []
-            # sort the postings by docid (least to greatest) for the boolean querys later
-            # loop through every Posting object for this token
-            for posting in sorted(postings, key=lambda p: p.docid):
-                # use json.dumps to convert fields dictionary to a compact string
-                fields = json.dumps(posting.fields, separators=(",", ":"))
-                # format: docid:frequency:fields
-                posting_data = f"{posting.docid}:{posting.freq}:{fields}"
-                posting_list.append(posting_data)
-
-            # write token and its postings
-            # each line in the file will be for one token like below
-            # token docid:frequency:fields docid:frequency:fields ...
-            f.write(token + " " + " ".join(posting_list) + "\n")
-
-def test_saving_index():
-    inverted_index = {
-        "cat": [Posting(1, 1, {"title": 1}), Posting(2, 2, {"h1": 2})],
-        "dog": [Posting(3, 3, {"h2": 3}), Posting(1, 1, {"bold": 1}), Posting(4, 4, {"h1": 4})]
-    }
-
-    save_index(inverted_index, "index.txt")
-    print("Unique tokens:", len(inverted_index))
-    print(f"Index size: {os.path.getsize('index.txt') / 1024:.2f} KB")
 
 def print_stats(num_docs, inverted_index, index_file):
     size_kb = os.path.getsize(index_file) / 1024 # divide by 1024 to convert from bytes -> KB
@@ -173,8 +163,51 @@ def report(num_docs, inverted_index, index_file):
 
 
 #testing
+def test_read_data(folder_path):
+    # this is just to test the json reading
+    # will delete later
+    for docid, url, content in read_data(folder_path):
+        print("Document ID: ", docid)
+        print("URL: ", url)
+        print("Content: ", content[:100])
+        print("--------------------------------")
+
+        if docid == 5:
+            break
+
+def test_saving_index():
+    inverted_index = {
+        "cat": [Posting(1, 1, {"title": 1}), Posting(2, 2, {"h1": 2})],
+        "dog": [Posting(3, 3, {"h2": 3}), Posting(1, 1, {"bold": 1}), Posting(4, 4, {"h1": 4})]
+    }
+
+    save_index(inverted_index, "index.txt")
+    print("Unique tokens:", len(inverted_index))
+    print(f"Index size: {os.path.getsize('index.txt') / 1024:.2f} KB")
+
+
 
 if __name__ == "__main__":
+    # Temporary test for HTML parsing and tokenization
+    sample_html = """
+    <html>
+        <head><title>Learning Python</title></head>
+        <body>
+            <h1>Programming Classes</h1>
+            <p>Students are learning programming!</p>
+        </body>
+    </html>
+    """
     test_read_data("DEV")
     print("Processed tokens: ", process_html(sample_html))
-    test_saving_index()
+    
+    inverted_index = build_index("DEV", limit=10)   # limit param is just for testing. remove limit value in a final run
+    inverted_index.save_index("index.txt")
+    inverted_index.save_documents()
+
+    print_stats(
+        len(inverted_index.doc),
+        inverted_index.index,
+        "index.txt"
+    )
+
