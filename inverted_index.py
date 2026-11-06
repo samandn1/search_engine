@@ -68,6 +68,9 @@ class InvertedIndex:
                 # token docid:frequency:fields docid:frequency:fields ...
                 f.write(token + " " + " ".join(posting_list) + "\n")
 
+    def clear(self):
+        # need to ofload the index from memory
+        self.index.clear()
 
 
 def read_data(folder_path):
