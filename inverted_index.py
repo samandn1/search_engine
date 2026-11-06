@@ -31,8 +31,11 @@ class InvertedIndex:
         # use a dictionary to store the index
         # the keys are tokens and the values are lists of postings
         self.index = {}
+        # store docID to url
+        self.doc = {}
 
     def add_posting(self, url, docID, token_counts):
+        self.doc[docID] = url
         for token, freq in token_counts.items():
             # create positng object for each token and add it to the index
             posting = Posting(docID, freq, {}) 
@@ -41,6 +44,7 @@ class InvertedIndex:
                 self.index[token] = []
             # add the posting to the list of postings for the token
             self.index[token].append(posting)
+
 
 
 
