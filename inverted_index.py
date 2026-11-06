@@ -8,7 +8,7 @@ stemmer = PorterStemmer()
 # To Do:
 # Fetch all local documents 
 # Parse json and extract text
-# Tokenize text and remove stop words
+# Tokenize text 
 # Create a dictionary of terms and their corresponding document IDs
 # Map with tokens as the keys and a list of corresponding postings.
 
@@ -54,6 +54,7 @@ def read_data(folder_path):
                 docid += 1
             except (OSError, ValueError) as e:
                 print(f"Error reading {filepath}: {e}")
+
 def tokenize(text):
     # Extract all alphanumeric sequences
     tokens = re.findall(r"[a-zA-Z0-9]+", text.lower())
@@ -101,3 +102,44 @@ sample_html = """
 """
 
 print("Processed tokens:", process_html(sample_html))
+
+
+
+
+
+
+
+
+
+
+
+def save_index(inverted_index, filename):
+    with open(filename, "w", encoding="utf-8") as f:
+        # loop through every token and its posting list
+        for token, postings in sorted(inverted_index.items()):
+            posting_list = []
+            # sort the postings by docid (least to greatest) for the boolean querys later
+            # loop through every Posting object for this token
+            for posting in sorted(postings, key=lambda p: p.docid):
+                # use json.dumps to convert fields dictionary to a compact string
+                fields = json.dumps(posting.fields, separators=(",", ":"))
+                # format: docid:frequency:fields
+                posting_data = f"{posting.docid}:{posting.freq}:{fields}"
+                posting_list.append(posting_data)
+
+            # write token and its postings
+            # each line in the file will be for one token like below
+            # token docid:frequency:fields docid:frequency:fields ...
+            f.write(token + " " + " ".join(posting_list) + "\n")
+
+def test_saving_index():
+    inverted_index = {
+        "cat": [Posting(1, 1, {"title": 1}), Posting(2, 2, {"h1": 2})],
+        "dog": [Posting(3, 3, {"h2": 3}), Posting(1, 1, {"bold": 1}), Posting(4, 4, {"h1": 4})]
+    }
+
+    save_index(inverted_index, "index.txt")
+    print("Unique tokens:", len(inverted_index))
+    print(f"Index size: {os.path.getsize('index.txt') / 1024:.2f} KB")
+
+test_saving_index()
