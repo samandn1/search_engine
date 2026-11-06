@@ -124,8 +124,11 @@ def process_html(html):
     return tokenize(text)
 
 
-def build_index(folder_path, limit=None):    # LIMIT PARAM IS JUST FOR TESTING REMOVE LATER
+def build_index(folder_path, offload = 1000,limit=None):    # LIMIT PARAM IS JUST FOR TESTING REMOVE LATER
     inverted_index = InvertedIndex()
+    # list to keep track of the partial index files
+    partial_index_file = []  
+    last_doc_offloaded = 0
 
     for docid, url, content in read_data(folder_path):
         tokens = process_html(content)
@@ -138,6 +141,7 @@ def build_index(folder_path, limit=None):    # LIMIT PARAM IS JUST FOR TESTING R
         
         # add the document's tokens to the inverted index
         inverted_index.add_posting(url, docid, token_counts)
+        last_doc_offloaded += 1
 
 
         # JUST FOR TESTING: just want to test the function with the first 10 docs in DEV
@@ -145,7 +149,14 @@ def build_index(folder_path, limit=None):    # LIMIT PARAM IS JUST FOR TESTING R
         if limit is not None and len(inverted_index.doc) >= limit:
             break
     
-    return inverted_index
+    return inverted_index, partial_index_file
+
+def offload_index(inverted_index, partial_index_file):
+    path = f"partial_indexes_{partial_index_file}.txt"
+    inverted_index.save_index(path)
+    partial_index_file.append(path)
+    inverted_index.save_documents()
+    inverted_index.clear() 
 
 
 def print_stats(num_docs, inverted_index, index_file):
@@ -204,8 +215,8 @@ if __name__ == "__main__":
     test_read_data("DEV")
     print("Processed tokens: ", process_html(sample_html))
     
-    inverted_index = build_index("DEV", limit=10)   # limit param is just for testing. remove limit value in a final run
-    inverted_index.save_index("index.txt")
+    inverted_index, partial_index_files = build_index("DEV", 500, limit=10)   # limit param is just for testing. remove limit value in a final run
+   
     inverted_index.save_documents()
 
     print_stats(
