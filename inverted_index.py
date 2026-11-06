@@ -124,7 +124,7 @@ def process_html(html):
     return tokenize(text)
 
 
-def build_index(folder_path, offload = 1000):
+def build_index(folder_path, offload = 15000):
     inverted_index = InvertedIndex()
     # list to keep track of the partial index files
     partial_index_file = []  
@@ -142,11 +142,17 @@ def build_index(folder_path, offload = 1000):
         # add the document's tokens to the inverted index
         inverted_index.add_posting(url, docid, token_counts)
         last_doc_offloaded += 1
+
+        if last_doc_offloaded >= offload:
+            offload_index(inverted_index, partial_index_file)
+            last_doc_offloaded = 0
     
+    if inverted_index.index:
+        offload_index(inverted_index, partial_index_file) # saves leftover pages after loop
     return inverted_index, partial_index_file
 
 def offload_index(inverted_index, partial_index_file):
-    path = f"partial_indexes_{partial_index_file}.txt"
+    path = f"partial_indexes_{len(partial_index_file)}.txt"
     inverted_index.save_index(path)
     partial_index_file.append(path)
     inverted_index.save_documents()
