@@ -153,6 +153,17 @@ def print_stats(num_docs, inverted_index, index_file):
     print("Number of unique tokens: ", len(inverted_index))
     print(f"Index size on disk: {size_kb} KB")
 
+def report(num_docs, inverted_index, index_file):
+    # divide by 1024 to convert  bytes to KB
+    # index_file will be a txt file. 
+    # assignment wants a pdf report, so might have to change this
+    size = os.path.getsize(index_file) / 1024 
+    with open("report.txt", "w") as f:
+        f.write(f"Number of indexed documents: {num_docs}\n")
+        f.write(f"Number of unique tokens: {len(inverted_index)}\n")
+        f.write(f"Index size: {size:.2f} KB\n")
+
+
 #testing
 
 if __name__ == "__main__":
