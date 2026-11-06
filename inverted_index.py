@@ -132,12 +132,12 @@ def build_index(folder_path, offload = 15000):
 
     for docid, url, content in read_data(folder_path):
         tokens = process_html(content)
-        token_counts = {}      # dictionary to keep track of each token's freq {"token": 1}
+        token_counts = {} # dictionary to keep track of each token's freq {"token": 1}
        
         for token in tokens:
             if token not in token_counts:  # create a new key value pair for a new token
                 token_counts[token] = 0
-            token_counts[token] += 1       # increment the freq
+            token_counts[token] += 1 # increment the freq
         
         # add the document's tokens to the inverted index
         inverted_index.add_posting(url, docid, token_counts)
@@ -158,21 +158,60 @@ def offload_index(inverted_index, partial_index_file):
     inverted_index.save_documents()
     inverted_index.clear() 
 
-def report(num_docs, inverted_index, index_file):
+def merge_partial_indexes(partial_files, output_file):
+    # open every partial index file at once
+    files = [open(p, "r", encoding="utf-8") for p in partial_files]
+
+    # read the first row of each file -> (token, postings)
+    current = [read_next(f) for f in files]
+
+    unique_tokens = 0
+    with open(output_file, "w", encoding="utf-8") as out:
+        while True:
+            # find the alphabetically smallest token among the current lines
+            tokens = [line[0] for line in current if line is not None]
+            if not tokens:
+                break # every file is finished
+            smallest = min(tokens)
+
+            # combine postings from every file whose current token is the smallest
+            # files are in docid order, so joining them in file order keeps postings sorted
+            merged = []
+            for i in range(len(files)):
+                if current[i] is not None and current[i][0] == smallest:
+                    merged.append(current[i][1])
+                    current[i] = read_next(files[i]) # move that file to its next line
+
+            out.write(smallest + " " + " ".join(merged) + "\n")
+            unique_tokens += 1
+
+    for f in files:
+        f.close()
+    return unique_tokens
+
+def read_next(f):
+    # read one line and split it into (token, postings). returns None at end of file
+    line = f.readline()
+    if not line:
+        return None
+    token, postings = line.rstrip("\n").split(" ", 1)
+    return (token, postings)
+
+def report(num_docs, unique_tokens, index_file):
     # divide by 1024 to convert  bytes to KB
     # index_file will be a txt file. 
     # assignment wants a pdf report, so might have to change this
     size = os.path.getsize(index_file) / 1024 
     with open("report.txt", "w") as f:
         f.write(f"Number of indexed documents: {num_docs}\n")
-        f.write(f"Number of unique tokens: {len(inverted_index)}\n")
+        f.write(f"Number of unique tokens: {unique_tokens}\n")
         f.write(f"Index size: {size:.2f} KB\n")
 
 
 if __name__ == "__main__":
     inverted_index, partial_index_files = build_index("DEV")
-    inverted_index.save_index("index.txt")
+    unique_tokens = merge_partial_indexes(partial_index_files, "index.txt")
     inverted_index.save_documents()
 
-    report(len(inverted_index.doc), inverted_index.index, "index.txt")
+    report(len(inverted_index.doc), unique_tokens, "index.txt")
 
