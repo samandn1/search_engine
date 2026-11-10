@@ -143,6 +143,9 @@ def build_index(folder_path, offload = 15000):
         inverted_index.add_posting(url, docid, token_counts)
         last_doc_offloaded += 1
 
+        if docid % 1000 == 0:       # Progress markers (delete later)
+            print(f"Indexed {docid} documents", flush=True)
+
         if last_doc_offloaded >= offload:
             offload_index(inverted_index, partial_index_file)
             last_doc_offloaded = 0
@@ -208,10 +211,94 @@ def report(num_docs, unique_tokens, index_file):
         f.write(f"Index size: {size:.2f} KB\n")
 
 
+def build_lexicon(index_file):
+    # Build a lexicon file so that we can find each token's location in the index file, 
+    # without searching through the entire file --> avoids loading in the index in memory (Developer contraints)
+    # A lexicon is a dictionary that maps each token to its location (byte offset) in the inverted index file.
+    # lexicon = {"token1": 10} means token1's postings list start at byte position 18.
+    # with the byte location, we can use .seek() to jump to that byte in the file to read.
+    lexicon = {}
+
+    # open the index file with "rb" = read binary (so read it in binary mode (bytes instead of strings)
+    with open(index_file, "rb") as f:
+        while True:
+            # Get the current byte position
+            offset = f.tell()
+
+            # Read one line
+            line = f.readline()
+
+            # Stop at the end of the file
+            if not line:
+                break
+
+            # Extract the token before the first space.
+            token = line.split(b" ", 1)[0].decode("utf-8")
+
+            # Store token and its byte position
+            lexicon[token] = offset
+
+    # Save lexicon to a JSON file
+    with open("lexicon.json", "w", encoding="utf-8") as f:
+        json.dump(lexicon, f)
+    
+    return lexicon
+
+
+def get_postings(token, lexicon, index_file):
+    # Given a specific token, get its postings list from the inverted_index file
+
+    # Check if token exists
+    if token not in lexicon:
+        return []
+
+    # Open index in binary mode
+    with open(index_file, "rb") as f:
+        f.seek(lexicon[token]) # Jump to the token's location
+        line = f.readline().decode("utf-8") # Read that token's line
+
+    parts = line.strip().split(" ", 1) # Separate token from its postings
+
+    if len(parts) < 2: # check whether the line has both a token and its posting list.
+        return []
+
+    postings = []
+
+    for entry in parts[1].split():
+        docid, freq, fields = entry.split(":", 2)
+
+        postings.append(Posting(int(docid), int(freq), json.loads(fields)))
+
+    return postings
+
+
 if __name__ == "__main__":
     inverted_index, partial_index_files = build_index("DEV")
+
     unique_tokens = merge_partial_indexes(partial_index_files, "index.txt")
     inverted_index.save_documents()
 
     report(len(inverted_index.doc), unique_tokens, "index.txt")
+
+    # Build and save lexicon
+    lexicon = build_lexicon("index.txt")
+
+
+   # Test lexicon
+    # print("Lexicon entries:", len(lexicon))
+    # print("Academia offset:", lexicon.get("academia"))
+
+    # # Test get_postings()
+    # postings = get_postings("academia", lexicon, "index.txt")
+
+    # print("\nPostings for 'academia':")
+    # for posting in postings[:10]:
+    #     print(
+    #         "DocID:", posting.docid,
+    #         "Frequency:", posting.freq,
+    #         "Fields:", posting.fields)
+    # print("Unique tokens:", unique_tokens)
+    # print("Lexicon entries:", len(lexicon))
+    # print("Match:", unique_tokens == len(lexicon)) # should match
+
 
