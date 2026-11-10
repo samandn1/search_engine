@@ -143,8 +143,8 @@ def build_index(folder_path, offload = 15000):
         inverted_index.add_posting(url, docid, token_counts)
         last_doc_offloaded += 1
 
-        if docid % 1000 == 0:       # Progress markers (delete later)
-            print(f"Indexed {docid} documents", flush=True)
+        # if docid % 1000 == 0:       # Progress markers (delete later)
+        #     print(f"Indexed {docid} documents", flush=True)
 
         if last_doc_offloaded >= offload:
             offload_index(inverted_index, partial_index_file)
@@ -300,5 +300,4 @@ if __name__ == "__main__":
     # print("Unique tokens:", unique_tokens)
     # print("Lexicon entries:", len(lexicon))
     # print("Match:", unique_tokens == len(lexicon)) # should match
-
 
