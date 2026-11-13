@@ -272,32 +272,32 @@ def get_postings(token, lexicon, index_file):
     return postings
 
 
-if __name__ == "__main__":
-    inverted_index, partial_index_files = build_index("DEV")
+# if __name__ == "__main__":
+#     inverted_index, partial_index_files = build_index("/Users/gracysutaria/Documents/UCI/CS_121/DEV")
 
-    unique_tokens = merge_partial_indexes(partial_index_files, "index.txt")
-    inverted_index.save_documents()
+#     unique_tokens = merge_partial_indexes(partial_index_files, "index.txt")
+#     inverted_index.save_documents()
 
-    report(len(inverted_index.doc), unique_tokens, "index.txt")
+#     report(len(inverted_index.doc), unique_tokens, "index.txt")
 
-    # Build and save lexicon
-    lexicon = build_lexicon("index.txt")
+#     # Build and save lexicon
+#     lexicon = build_lexicon("index.txt")
 
 
-   # Test lexicon
-    # print("Lexicon entries:", len(lexicon))
-    # print("Academia offset:", lexicon.get("academia"))
+#    # Test lexicon
+#     # print("Lexicon entries:", len(lexicon))
+#     # print("Academia offset:", lexicon.get("academia"))
 
-    # # Test get_postings()
-    # postings = get_postings("academia", lexicon, "index.txt")
+#     # # Test get_postings()
+#     # postings = get_postings("academia", lexicon, "index.txt")
 
-    # print("\nPostings for 'academia':")
-    # for posting in postings[:10]:
-    #     print(
-    #         "DocID:", posting.docid,
-    #         "Frequency:", posting.freq,
-    #         "Fields:", posting.fields)
-    # print("Unique tokens:", unique_tokens)
-    # print("Lexicon entries:", len(lexicon))
-    # print("Match:", unique_tokens == len(lexicon)) # should match
+#     # print("\nPostings for 'academia':")
+#     # for posting in postings[:10]:
+#     #     print(
+#     #         "DocID:", posting.docid,
+#     #         "Frequency:", posting.freq,
+#     #         "Fields:", posting.fields)
+#     # print("Unique tokens:", unique_tokens)
+#     # print("Lexicon entries:", len(lexicon))
+#     # print("Match:", unique_tokens == len(lexicon)) # should match
 
