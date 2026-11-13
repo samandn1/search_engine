@@ -1,4 +1,5 @@
 import inverted_index
+import json
 #from inverted_index import get_postings, Posting
 
 def intersect(postings1, postings2):
@@ -77,4 +78,44 @@ def search(query, lexicon, index_file):
 #     print(docids("Milk MILK"))       # [1, 2, 3]  (lowercased, duplicates removed)
 #     print(docids("!!!"))            # []   (no tokens)
 
-#     inverted_index.get_postings = real_get_postings  
+
+def search_interface():
+    # Load the lexicon and document URLs from M1
+    with open("lexicon.json", "r", encoding="utf-8") as f:
+        lexicon = json.load(f)
+
+    with open("doc.json", "r", encoding="utf-8") as f:
+        documents = json.load(f)
+
+    print("UCI Search Engine")
+    print("Type 'quit' to exit.")
+
+    while True:
+        query = input("\nEnter search query: ").strip()
+
+        if query.lower() == "quit":
+            print("Goodbye!")
+            break
+
+        if not query:
+            print("Please enter a search query.")
+            continue
+
+        # Call the team's existing search function
+        results = search(query, lexicon, "index.txt")
+
+        if not results:
+            print("No matching documents found.")
+            continue
+
+        print(f"\nFound {len(results)} matching documents.")
+        print("First 5 matching URLs:")
+
+        # Convert document IDs into URLs
+        for i, posting in enumerate(results[:5], start=1):
+            url = documents.get(str(posting.docid), "URL not found")
+            print(f"{i}. {url}")
+
+
+if __name__ == "__main__":
+    search_interface()
