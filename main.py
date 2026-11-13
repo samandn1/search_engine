@@ -3,7 +3,7 @@ import search
 
 def main():
 
-    index, partial_index_files = inverted_index.build_index("DEV")
+    index, partial_index_files = inverted_index.build_index("/Users/gracysutaria/Documents/UCI/CS_121/DEV")
 
     unique_tokens = inverted_index.merge_partial_indexes(partial_index_files, "index.txt")
     index.save_documents()

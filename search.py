@@ -55,26 +55,26 @@ def search(query, lexicon, index_file):
 
 # test_intersect()
 
-def test_search():
-    # Example test for the search function
-    fake = {
-        "milk":  [inverted_index.Posting(1, 1, {}), inverted_index.Posting(2, 2, {}), inverted_index.Posting(3, 1, {})],
-        "cookies":  [inverted_index.Posting(1, 1, {}), inverted_index.Posting(2, 2, {}), inverted_index.Posting(3, 1, {}), inverted_index.Posting(4, 4, {})],
-        "chocolate": [inverted_index.Posting(2, 1, {}), inverted_index.Posting(4, 1, {})],
-    }
+# def test_search():
+#     # Example test for the search function
+#     fake = {
+#         "milk":  [inverted_index.Posting(1, 1, {}), inverted_index.Posting(2, 2, {}), inverted_index.Posting(3, 1, {})],
+#         "cookies":  [inverted_index.Posting(1, 1, {}), inverted_index.Posting(2, 2, {}), inverted_index.Posting(3, 1, {}), inverted_index.Posting(4, 4, {})],
+#         "chocolate": [inverted_index.Posting(2, 1, {}), inverted_index.Posting(4, 1, {})],
+#     }
 
-    # temporarily replace the real file lookup with the fake dictionary
-    real_get_postings = inverted_index.get_postings
-    inverted_index.get_postings = lambda token, lexicon, index_file: fake.get(token, [])
+#     # temporarily replace the real file lookup with the fake dictionary
+#     real_get_postings = inverted_index.get_postings
+#     inverted_index.get_postings = lambda token, lexicon, index_file: fake.get(token, [])
 
-    def docids(query):
-        return [p.docid for p in search(query, None, None)]
+#     def docids(query):
+#         return [p.docid for p in search(query, None, None)]
 
-    print(docids("milk"))            # [1, 2, 3]
-    print(docids("milk cookies"))    # [1, 2, 3]
-    print(docids("milk cookies chocolate"))   # [2]  (only page 2 has all three)
-    print(docids("milk bird"))       # []   (bird isn't in the index)
-    print(docids("Milk MILK"))       # [1, 2, 3]  (lowercased, duplicates removed)
-    print(docids("!!!"))            # []   (no tokens)
+#     print(docids("milk"))            # [1, 2, 3]
+#     print(docids("milk cookie"))    # [1, 2, 3]
+#     print(docids("milk cookie chocolate"))   # [2]  (only page 2 has all three)
+#     print(docids("milk bird"))       # []   (bird isn't in the index)
+#     print(docids("Milk MILK"))       # [1, 2, 3]  (lowercased, duplicates removed)
+#     print(docids("!!!"))            # []   (no tokens)
 
-    inverted_index.get_postings = real_get_postings  
+#     inverted_index.get_postings = real_get_postings  
