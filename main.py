@@ -22,7 +22,7 @@ def main():
     postings = inverted_index.get_postings("academia", lexicon, "index.txt")
 
     # Test search function
-    search.test_search()
+    #search.test_search()
 
     print("\nPostings for 'academia':")
     for posting in postings[:10]:
