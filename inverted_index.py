@@ -270,3 +270,11 @@ def get_postings(token, lexicon, index_file):
         postings.append(Posting(int(docid), int(freq), json.loads(fields)))
 
     return postings
+
+def get_urls(postings, doc_urls, k=5):
+    # turn a list of Posting objects into their urls ,top k only
+    # doc_urls comes from doc.json
+    urls = []
+    for posting in postings[:k]:
+        urls.append(doc_urls[str(posting.docid)])
+    return urls

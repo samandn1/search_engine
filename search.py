@@ -1,5 +1,7 @@
 import inverted_index
 import json
+import time
+import math
 #from inverted_index import get_postings, Posting
 
 def intersect(postings1, postings2):
@@ -22,7 +24,7 @@ def intersect(postings1, postings2):
 
     return common_docs
 
-def search(query, lexicon, index_file):
+def search(query, lexicon, index_file, num_docs=None):
     # can remove duplicates by using a dictionary
     tokens = list(dict.fromkeys(inverted_index.tokenize(query)))
     if not tokens:
@@ -43,11 +45,26 @@ def search(query, lexicon, index_file):
     result = all_postings[0]
     for post in all_postings[1:]:
         # intersect the current result with the next postings list
-        common_docs = intersect(result, post)
+        common_docs = set(intersect(result, post))
         result = [p for p in result if p.docid in common_docs]
 
+    if num_docs is not None:
+        result = rank(result, all_postings, num_docs)
     return result
     
+def rank(result, all_postings, num_docs):
+    # score each matching page with tf-idf, summed over every query word
+    # tf part: 1 + log(freq) -> more occurrences = higher score, with log returns
+    # idf part: log(N / df) -> rare words count more than common ones
+    keep = {p.docid for p in result} # docids that matched every query word
+    scores = {}
+    for postings in all_postings: # one postings list per query word
+        idf = math.log(num_docs / len(postings))
+        for p in postings:
+            if p.docid in keep:
+                scores[p.docid] = scores.get(p.docid, 0) + (1 + math.log(p.freq)) * idf
+    # highest score first
+    return sorted(result, key=lambda p: scores[p.docid], reverse=True)
 
 # def test_intersect():
 #     postings1 = [Posting(1, 1, {}), Posting(2, 2, {}), Posting(3, 1, {})]
@@ -78,44 +95,47 @@ def search(query, lexicon, index_file):
 #     print(docids("Milk MILK"))       # [1, 2, 3]  (lowercased, duplicates removed)
 #     print(docids("!!!"))            # []   (no tokens)
 
+    inverted_index.get_postings = real_get_postings  
 
-def search_interface():
-    # Load the lexicon and document URLs from M1
+
+def run_search():
+    # starts search interface in the console and loads lexicon and docid -> url map
+
+    # load the lexicon (token -> byte offset in index.txt)
+    # small enough to keep in memory, unlike full index
     with open("lexicon.json", "r", encoding="utf-8") as f:
         lexicon = json.load(f)
 
+    # load docid -> url map so we can show urls instead of docids
     with open("doc.json", "r", encoding="utf-8") as f:
-        documents = json.load(f)
+        doc_urls = json.load(f)
 
-    print("UCI Search Engine")
-    print("Type 'quit' to exit.")
-
+    # keep asking for queries until the user presses enter on an empty line
     while True:
-        query = input("\nEnter search query: ").strip()
-
-        if query.lower() == "quit":
-            print("Goodbye!")
-            break
-
+        query = input("\nSearch (or press Enter to quit): ").strip()
         if not query:
-            print("Please enter a search query.")
-            continue
+            break  # empty query -> quit
 
-        # Call the team's existing search function
-        results = search(query, lexicon, "index.txt")
+        # start timer to measure how long the search takes (<= 300 ms)
+        start = time.time()
 
-        if not results:
-            print("No matching documents found.")
-            continue
+        # find all pages that contain every word in the query (boolean AND)
+        results = search(query, lexicon, "index.txt", len(doc_urls))
 
-        print(f"\nFound {len(results)} matching documents.")
-        print("First 5 matching URLs:")
+        # turn the top 5 Posting objects into urls
+        urls = inverted_index.get_urls(results, doc_urls)
 
-        # Convert document IDs into URLs
-        for i, posting in enumerate(results[:5], start=1):
-            url = documents.get(str(posting.docid), "URL not found")
+        # stop the timer and convert seconds -> milliseconds
+        elapsed_ms = (time.time() - start) * 1000
+
+        # print the results
+        if not urls:
+            print("No results found.")
+        for i, url in enumerate(urls, 1):  # numbers the results starting at 1
             print(f"{i}. {url}")
 
+        # show how many pages matched in total and how long the search took
+        print(f"({len(results)} matching pages, {elapsed_ms:.1f} ms)")
 
 if __name__ == "__main__":
-    search_interface()
+    run_search()
