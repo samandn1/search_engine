@@ -1,4 +1,5 @@
 import inverted_index 
+import search
 
 def main():
 
@@ -14,21 +15,24 @@ def main():
 
 
    # Test lexicon
-    # print("Lexicon entries:", len(lexicon))
-    # print("Academia offset:", lexicon.get("academia"))
+    print("Lexicon entries:", len(lexicon))
+    print("Academia offset:", lexicon.get("academia"))
 
-    # # Test get_postings()
-    # postings = get_postings("academia", lexicon, "index.txt")
+    # Test get_postings()
+    postings = inverted_index.get_postings("academia", lexicon, "index.txt")
 
-    # print("\nPostings for 'academia':")
-    # for posting in postings[:10]:
-    #     print(
-    #         "DocID:", posting.docid,
-    #         "Frequency:", posting.freq,
-    #         "Fields:", posting.fields)
-    # print("Unique tokens:", unique_tokens)
-    # print("Lexicon entries:", len(lexicon))
-    # print("Match:", unique_tokens == len(lexicon)) # should match
+    # Test search function
+    search.test_search()
+
+    print("\nPostings for 'academia':")
+    for posting in postings[:10]:
+        print(
+            "DocID:", posting.docid,
+            "Frequency:", posting.freq,
+            "Fields:", posting.fields)
+    print("Unique tokens:", unique_tokens)
+    print("Lexicon entries:", len(lexicon))
+    print("Match:", unique_tokens == len(lexicon)) # should match
 
 if __name__ == "__main__":
     main()
