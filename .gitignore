@@ -223,3 +223,8 @@ __marimo__/
 developer/
 DEV/
 
+# large files
+partial_indexes_*.txt
+lexicon.json
+doc.json
+index.txt
