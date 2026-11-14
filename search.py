@@ -95,7 +95,7 @@ def rank(result, all_postings, num_docs):
 #     print(docids("Milk MILK"))       # [1, 2, 3]  (lowercased, duplicates removed)
 #     print(docids("!!!"))            # []   (no tokens)
 
-    inverted_index.get_postings = real_get_postings  
+
 
 
 def run_search():
