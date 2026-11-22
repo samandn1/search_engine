@@ -34,11 +34,15 @@ class InvertedIndex:
         # store docID to url
         self.doc = {}
 
-    def add_posting(self, url, docID, token_counts):
+    def add_posting(self, url, docID, token_counts, field_counts):
         self.doc[docID] = url
         for token, freq in token_counts.items():
+            # get the field counts for current token
+            fields = field_counts.get(token, {})
+
             # create positng object for each token and add it to the index
-            posting = Posting(docID, freq, {}) 
+            posting = Posting(docID, freq, fields) 
+
             # checks for new token
             if token not in self.index:
                 self.index[token] = []
@@ -118,10 +122,47 @@ def process_html(html):
         tag.decompose()
 
     # Extract readable text
-    text = soup.get_text(separator=" ", strip=True)
+    tokens = tokenize(soup.get_text(separator=" ", strip=True))
 
-    # Tokenize and stem
-    return tokenize(text)
+    # track important HTML fields for each token
+    # looks like {"word1": {"title": 1, "h1": 1}, "word2": {"bold": 4}}
+    field_counts = {}
+
+    # map the html tags to how we're going to categorize them in the index
+    # note that "p" is not included because its not an important tag
+    field_tags = {
+        "title": "title",
+        "h1" : "h1",
+        "h2": "h2",
+        "h3" : "h3",
+        "b" : "bold",    # "b" and "strong" are categorized the same
+        "strong" : "bold"
+    }
+
+    for tag_name, field in field_tags.items(): # loop through every html field tag type
+        # find all occurances of the current field tag
+        for element in soup.find_all(tag_name): 
+            # don't count nested matching tags twice like 
+            # <h1> <h1> word <h1> <h1> but 
+            # <h1> <b> word <b> <h1> will be counted separately
+            if element.find_parent(tag_name): 
+                continue
+
+            # tokenize the field's text
+            field_tokens = tokenize(element.get_text(separator=" ", strip=True))
+
+            # update the tokens' corresponding field count
+            for token in field_tokens:
+                # check if the token is unseen. initialize empty dict if so
+                if token not in field_counts:
+                    field_counts[token] = {}
+               
+                # if the field doesn't exist yet for the token, .get() initializes a new key for the field with count=0
+                # Add 1 to the count
+                field_counts[token][field] = field_counts[token].get(field, 0) + 1
+
+    return tokens, field_counts
+
 
 
 def build_index(folder_path, offload = 15000):
@@ -131,7 +172,7 @@ def build_index(folder_path, offload = 15000):
     last_doc_offloaded = 0
 
     for docid, url, content in read_data(folder_path):
-        tokens = process_html(content)
+        tokens, field_counts  = process_html(content) # get tokens and field-counts
         token_counts = {} # dictionary to keep track of each token's freq {"token": 1}
        
         for token in tokens:
@@ -140,11 +181,11 @@ def build_index(folder_path, offload = 15000):
             token_counts[token] += 1 # increment the freq
         
         # add the document's tokens to the inverted index
-        inverted_index.add_posting(url, docid, token_counts)
+        inverted_index.add_posting(url, docid, token_counts, field_counts)
         last_doc_offloaded += 1
 
-        # if docid % 1000 == 0:       # Progress markers (delete later)
-        #     print(f"Indexed {docid} documents", flush=True)
+        if docid % 1000 == 0:       # Progress markers (delete later)
+            print(f"Indexed {docid} documents", flush=True)
 
         if last_doc_offloaded >= offload:
             offload_index(inverted_index, partial_index_file)
@@ -278,3 +319,46 @@ def get_urls(postings, doc_urls, k=5):
     for posting in postings[:k]:
         urls.append(doc_urls[str(posting.docid)])
     return urls
+
+
+
+
+
+# def test_fields():
+#     html = """
+#     <html>
+#         <head>
+#             <title>Cat Dog</title>
+#         </head>
+#         <body>
+#             <h1>Cat Dog</h1>
+#             <p>Raining cats and dogs.</p>
+#             <b>Cat Dog</b>
+#         </body>
+#     </html>
+#     """
+
+#     tokens, field_counts = process_html(html)
+#     print("tokens: ", tokens)
+#     print("Field counts: ", field_counts)
+
+#     token_counts = {}
+#     for token in tokens:
+#         token_counts[token] = token_counts.get(token, 0) + 1
+
+#     #test add_posting()
+#     index = InvertedIndex()
+#     index.add_posting(
+#         "https://example.com",
+#         1,
+#         token_counts,
+#         field_counts
+#     )
+
+#     posting = index.index["cat"][0]
+    
+#     print("docid: ", posting.docid)
+#     print("freq: ", posting.freq)
+#     print("fields: ", posting.fields)
+
+# test_fields()
