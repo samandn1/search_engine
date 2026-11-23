@@ -52,19 +52,52 @@ def search(query, lexicon, index_file, num_docs=None):
         result = rank(result, all_postings, num_docs)
     return result
     
+
 def rank(result, all_postings, num_docs):
-    # score each matching page with tf-idf, summed over every query word
-    # tf part: 1 + log(freq) -> more occurrences = higher score, with log returns
-    # idf part: log(N / df) -> rare words count more than common ones
-    keep = {p.docid for p in result} # docids that matched every query word
+    # Score matching documents using TF-IDF with HTML field boosts
+    keep = {p.docid for p in result}
     scores = {}
-    for postings in all_postings: # one postings list per query word
+
+    for postings in all_postings:
+        if not postings:
+            continue
+
+        # Rare terms receive higher IDF scores
         idf = math.log(num_docs / len(postings))
+
         for p in postings:
-            if p.docid in keep:
-                scores[p.docid] = scores.get(p.docid, 0) + (1 + math.log(p.freq)) * idf
-    # highest score first
-    return sorted(result, key=lambda p: scores[p.docid], reverse=True)
+            if p.docid not in keep:
+                continue
+
+            # Start with the regular frequency of the word
+            weighted_freq = p.freq
+
+            # Give extra importance to words in HTML fields
+            fields = p.fields or {}
+
+            weighted_freq += (
+                4 * fields.get("title", 0)
+                + 3 * fields.get("h1", 0)
+                + 2 * fields.get("h2", 0)
+                + 1.5 * fields.get("h3", 0)
+                + 1 * fields.get("bold", 0)
+            )
+
+            # Logarithmic TF prevents repeated words from dominating
+            tf = 1 + math.log(weighted_freq)
+
+            # Add the TF-IDF contribution for this query term
+            scores[p.docid] = (
+                scores.get(p.docid, 0) + tf * idf
+            )
+
+    # Return matching documents from highest to lowest score
+    return sorted(
+        result,
+        key=lambda p: scores[p.docid],
+        reverse=True
+    )
+
 
 # def test_intersect():
 #     postings1 = [Posting(1, 1, {}), Posting(2, 2, {}), Posting(3, 1, {})]
