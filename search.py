@@ -24,7 +24,7 @@ def intersect(postings1, postings2):
 
     return common_docs
 
-def search(query, lexicon, index_file, num_docs=None):
+def search(query, lexicon, index_file, num_docs=None, doc_lengths=None):
     # can remove duplicates by using a dictionary
     tokens = list(dict.fromkeys(inverted_index.tokenize(query)))
     if not tokens:
@@ -49,11 +49,11 @@ def search(query, lexicon, index_file, num_docs=None):
         result = [p for p in result if p.docid in common_docs]
 
     if num_docs is not None:
-        result = rank(result, all_postings, num_docs)
+        result = rank(result, all_postings, num_docs, doc_lengths)
     return result
     
 
-def rank(result, all_postings, num_docs):
+def rank(result, all_postings, num_docs, doc_lengths=None):
     # Score matching documents using TF-IDF with HTML field boosts
     keep = {p.docid for p in result}
     scores = {}
@@ -91,6 +91,10 @@ def rank(result, all_postings, num_docs):
                 scores.get(p.docid, 0) + tf * idf
             )
 
+    # cosine normalization: divide by document length so long pages don't win just by size
+    if doc_lengths is not None:
+        for docid in scores:
+            scores[docid] /= doc_lengths[str(docid)]
     # Return matching documents from highest to lowest score
     return sorted(
         result,
@@ -143,6 +147,9 @@ def run_search():
     with open("doc.json", "r", encoding="utf-8") as f:
         doc_urls = json.load(f)
 
+    # load docid -> document length for cosine normalization
+    with open("doc_lengths.json", "r", encoding="utf-8") as f:
+        doc_lengths = json.load(f)
     # keep asking for queries until the user presses enter on an empty line
     while True:
         query = input("\nSearch (or press Enter to quit): ").strip()
@@ -153,7 +160,7 @@ def run_search():
         start = time.time()
 
         # find all pages that contain every word in the query (boolean AND)
-        results = search(query, lexicon, "index.txt", len(doc_urls))
+        results = search(query, lexicon, "index.txt", len(doc_urls), doc_lengths)
 
         # turn the top 5 Posting objects into urls
         urls = inverted_index.get_urls(results, doc_urls)

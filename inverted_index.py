@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import math
 from bs4 import BeautifulSoup
 from nltk.stem import PorterStemmer
 import duplicates
@@ -32,11 +33,14 @@ class InvertedIndex:
         # use a dictionary to store the index
         # the keys are tokens and the values are lists of postings
         self.index = {}
+        self.doc_lengths = {} # for cosine similarity
         # store docID to url
         self.doc = {}
 
     def add_posting(self, url, docID, token_counts, field_counts):
         self.doc[docID] = url
+        # length of the document's tf vector: sqrt(sum of (1 + log(tf))^2)
+        self.doc_lengths[docID] = math.sqrt(sum((1 + math.log(freq)) ** 2 for freq in token_counts.values()))
         for token, freq in token_counts.items():
             # get the field counts for current token
             fields = field_counts.get(token, {})
@@ -53,6 +57,8 @@ class InvertedIndex:
     def save_documents(self):
         with open("doc.json", "w", encoding="utf-8") as f:
             json.dump(self.doc,f)
+        with open("doc_lengths.json", "w", encoding="utf-8") as f:
+            json.dump(self.doc_lengths, f)
     
     def save_index(self, filename):
         with open(filename, "w", encoding="utf-8") as f:
