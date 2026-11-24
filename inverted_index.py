@@ -114,6 +114,10 @@ def tokenize(text):
     # Stem every token (including stop words)
     return [stemmer.stem(token) for token in tokens]
 
+def ngram(tokens, n):
+    # Used for 2-gram and 3-gram indexing
+    # join using hyphen
+    return ['-'.join(tokens[i:i+n]) for i in range(len(tokens)-n+1)]
 
 def process_html(html):
     soup = BeautifulSoup(html, "html.parser")
