@@ -3,6 +3,7 @@ import json
 import re
 from bs4 import BeautifulSoup
 from nltk.stem import PorterStemmer
+import duplicates
 
 stemmer = PorterStemmer()
 # To Do:
@@ -170,7 +171,7 @@ def build_index(folder_path, offload = 15000):
     # list to keep track of the partial index files
     partial_index_file = []  
     last_doc_offloaded = 0
-
+    detector = duplicates.DuplicateDetector()  # tracks pages we've already indexed
     for docid, url, content in read_data(folder_path):
         tokens, field_counts  = process_html(content) # get tokens and field-counts
         token_counts = {} # dictionary to keep track of each token's freq {"token": 1}
@@ -180,6 +181,10 @@ def build_index(folder_path, offload = 15000):
                 token_counts[token] = 0
             token_counts[token] += 1 # increment the freq
         
+        # skip exact and near duplicate pages so they aren't indexed twice
+        if detector.is_duplicate(tokens, token_counts):
+            continue
+
         # add the document's tokens to the inverted index
         inverted_index.add_posting(url, docid, token_counts, field_counts)
         last_doc_offloaded += 1
@@ -193,6 +198,7 @@ def build_index(folder_path, offload = 15000):
     
     if inverted_index.index:
         offload_index(inverted_index, partial_index_file) # saves leftover pages after loop
+    print(f"skipped {detector.exact_dups} exact duplicates and {detector.near_dups} near duplicates")
     return inverted_index, partial_index_file
 
 def offload_index(inverted_index, partial_index_file):
