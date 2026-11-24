@@ -189,6 +189,10 @@ def build_index(folder_path, offload = 15000):
         if detector.is_duplicate(tokens, token_counts):
             continue
 
+        # add 2-grams and 3-grams to the token_counts dictionary
+        for gram in ngram(tokens, 2) + ngram(tokens, 3):
+            token_counts[gram] = token_counts.get(gram, 0) + 1   
+
         # add the document's tokens to the inverted index
         inverted_index.add_posting(url, docid, token_counts, field_counts)
         last_doc_offloaded += 1
