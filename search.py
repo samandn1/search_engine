@@ -24,16 +24,11 @@ def intersect(postings1, postings2):
 
     return common_docs
 
-def search(query, lexicon, index_file, num_docs=None, doc_lengths=None):
-    # can remove duplicates by using a dictionary
-    tokens = list(dict.fromkeys(inverted_index.tokenize(query)))
-    if not tokens:
-        return []
-
+def run_query(terms, lexicon, index_file, num_docs=None, doc_lengths=None):
     # list of postings for each token
     all_postings = []
-    for token in tokens:
-        postings = inverted_index.get_postings(token, lexicon, index_file)
+    for term in terms:
+        postings = inverted_index.get_postings(term, lexicon, index_file)
         if not postings:
             return []
         all_postings.append(postings)
@@ -51,7 +46,32 @@ def search(query, lexicon, index_file, num_docs=None, doc_lengths=None):
     if num_docs is not None:
         result = rank(result, all_postings, num_docs, doc_lengths)
     return result
+
     
+def search(query, lexicon, index_file, num_docs=None, doc_lengths=None):
+    tokens = inverted_index.tokenize(query)
+    if not tokens:
+        return []
+
+    terms = tokens[:]
+    if len(tokens) >= 2:
+        # add 2-grams
+        terms += inverted_index.ngrams(tokens, 2) 
+    if len(tokens) >= 3:
+        # add 3-grams
+        terms += inverted_index.ngrams(tokens, 3)
+    # remove duplicates 
+    terms = list(dict.fromkeys(terms))  
+
+    result = run_query(terms, lexicon, index_file, num_docs, doc_lengths)
+
+    # if there isn't a result for the exact phrase
+    if not result and len(tokens) > 1:
+        # try again with just the individual tokens (no n-grams)
+        words = list(dict.fromkeys(tokens))
+        result = run_query(words, lexicon, index_file, num_docs, doc_lengths)
+    return result
+
 
 def rank(result, all_postings, num_docs, doc_lengths=None):
     # Score matching documents using TF-IDF with HTML field boosts
