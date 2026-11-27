@@ -16,7 +16,7 @@ def load_engine():
         lexicon = json.load(f) 
     with open('doc.json', 'r', encoding='utf-8') as f:
         doc_urls = json.load(f)
-    with open('doc_length.json', 'r', encoding='utf-8') as f:
+    with open('doc_lengths.json', 'r', encoding='utf-8') as f:
         doc_lengths = json.load(f)
     return lexicon, doc_urls, doc_lengths
 
@@ -24,11 +24,19 @@ def load_engine():
 lexicon, doc_urls, doc_lengths = load_engine()
 
 query = st.text_input('Search:', placeholder='Search...')
-if query:
-    results = search.search(query, lexicon, 'index.txt', len(doc_urls), doc_lengths)
-    st.caption(f'Found {len(results)} results for "{query}"')
 
-    for r in results:
-        st.markdown(f'[{r["title"]}]({r["url"]})')
-        st.caption(f'{r["url"]}: score: {r["score"]}')
+if query:
+    start = time.time()
+    results = search.search(query, lexicon, 'index.txt', len(doc_urls), doc_lengths)
+    elapsed_ms = (time.time() - start) * 100
+
+    if not results:
+        st.info('No Results Found')
+    else:
+        st.caption(f'Found {len(results)} results for "{query}" in {elapsed_ms:.1f} ms')
+
+        for r, posting in enumerate(results[:15], 1):
+            url = doc_urls.get(posting.docid)
+            st.markdown(f'{r} [{url}]')
+            #st.caption(f'{r["url"]}: score: {r["score"]}')
     #st.write(f'Searching for: {query}') 

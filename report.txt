@@ -1,3 +1,3 @@
-Number of indexed documents: 55393
-Number of unique tokens: 1066417
-Index size: 143031.10 KB
+Number of indexed documents: 36788
+Number of unique tokens: 15095199
+Index size: 640625.78 KB

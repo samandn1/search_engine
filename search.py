@@ -56,10 +56,10 @@ def search(query, lexicon, index_file, num_docs=None, doc_lengths=None):
     terms = tokens[:]
     if len(tokens) >= 2:
         # add 2-grams
-        terms += inverted_index.ngrams(tokens, 2) 
+        terms += inverted_index.ngram(tokens, 2) 
     if len(tokens) >= 3:
         # add 3-grams
-        terms += inverted_index.ngrams(tokens, 3)
+        terms += inverted_index.ngram(tokens, 3)
     # remove duplicates 
     terms = list(dict.fromkeys(terms))  
 
