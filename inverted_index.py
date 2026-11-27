@@ -2,9 +2,11 @@ import os
 import json
 import re
 import math
+import time
 from bs4 import BeautifulSoup
 from nltk.stem import PorterStemmer
 import duplicates
+from anchor_index import extract_anchors, AnchorCollector, normalize_url, merge_main_partials
 
 stemmer = PorterStemmer()
 # To Do:
@@ -61,23 +63,22 @@ class InvertedIndex:
             json.dump(self.doc_lengths, f)
     
     def save_index(self, filename):
+        # loop through every token and its posting list
+        # sort the postings by docid (least to greatest) for the boolean querys later
+        # loop through every Posting object for this token
+        # use json.dumps to convert fields dictionary to a compact string
+        # format: docid:frequency:fields
+        # write token and its postings
+        # each line in the file will be for one token like below
+        # token docid:frequency:fields docid:frequency:fields ...
+        # Write postings directly to avoid duplicating a large posting list in RAM.
         with open(filename, "w", encoding="utf-8") as f:
-            # loop through every token and its posting list
             for token, postings in sorted(self.index.items()):
-                posting_list = []
-                # sort the postings by docid (least to greatest) for the boolean querys later
-                # loop through every Posting object for this token
+                f.write(token)
                 for posting in sorted(postings, key=lambda p: p.docid):
-                    # use json.dumps to convert fields dictionary to a compact string
                     fields = json.dumps(posting.fields, separators=(",", ":"))
-                    # format: docid:frequency:fields
-                    posting_data = f"{posting.docid}:{posting.freq}:{fields}"
-                    posting_list.append(posting_data)
-
-                # write token and its postings
-                # each line in the file will be for one token like below
-                # token docid:frequency:fields docid:frequency:fields ...
-                f.write(token + " " + " ".join(posting_list) + "\n")
+                    f.write(f" {posting.docid}:{posting.freq}:{fields}")
+                f.write("\n")
 
     def clear(self):
         # need to ofload the index from memory
@@ -125,7 +126,7 @@ def ngram(tokens, n):
     # join using hyphen
     return ['-'.join(tokens[i:i+n]) for i in range(len(tokens)-n+1)]
 
-def process_html(html):
+def process_html(html, source_url):
     soup = BeautifulSoup(html, "html.parser")
 
     # Remove non-visible content
@@ -172,86 +173,80 @@ def process_html(html):
                 # Add 1 to the count
                 field_counts[token][field] = field_counts[token].get(field, 0) + 1
 
-    return tokens, field_counts
+    # Extract anchors from the same BeautifulSoup object (no second HTML parse)
+    anchors = extract_anchors(soup, source_url, tokenize)
+
+    return tokens, field_counts, anchors
 
 
 
-def build_index(folder_path, offload = 15000):
+def build_index(folder_path, offload = 15000, anchor_batch_size = 25000):
     inverted_index = InvertedIndex()
     # list to keep track of the partial index files
     partial_index_file = []  
     last_doc_offloaded = 0
     detector = duplicates.DuplicateDetector()  # tracks pages we've already indexed
-    for docid, url, content in read_data(folder_path):
-        tokens, field_counts  = process_html(content) # get tokens and field-counts
-        token_counts = {} # dictionary to keep track of each token's freq {"token": 1}
+    anchor_collector = AnchorCollector(batch_size=anchor_batch_size)
+
+    # Save accepted URL/docID pairs for disk-based anchor target matching 
+    with open("url_doc_map.tsv", "w", encoding="utf-8") as url_map:
+        for docid, url, content in read_data(folder_path):
+            tokens, field_counts, anchors = process_html(content, url) # get tokens and field-counts
+            token_counts = {} # dictionary to keep track of each token's freq {"token": 1}
        
-        for token in tokens:
-            if token not in token_counts:  # create a new key value pair for a new token
-                token_counts[token] = 0
-            token_counts[token] += 1 # increment the freq
+            for token in tokens:
+                if token not in token_counts:  # create a new key value pair for a new token
+                    token_counts[token] = 0
+                token_counts[token] += 1 # increment the freq
+
+            if docid % 1000 == 0:  # PROGRESS MARKERS delete later
+                print(f"Processed {docid} documents", flush=True)
         
-        # skip exact and near duplicate pages so they aren't indexed twice
-        if detector.is_duplicate(tokens, token_counts):
-            continue
+            # skip exact and near duplicate pages so they aren't indexed twice
+            if detector.is_duplicate(tokens, token_counts):
+                continue
 
-        # add 2-grams and 3-grams to the token_counts dictionary
-        for gram in ngram(tokens, 2) + ngram(tokens, 3):
-            token_counts[gram] = token_counts.get(gram, 0) + 1   
+            # add 2-grams and 3-grams to the token_counts dictionary
+            for gram in ngram(tokens, 2) + ngram(tokens, 3):
+                token_counts[gram] = token_counts.get(gram, 0) + 1   
 
-        # add the document's tokens to the inverted index
-        inverted_index.add_posting(url, docid, token_counts, field_counts)
-        last_doc_offloaded += 1
+            # add the document's tokens to the inverted index
+            inverted_index.add_posting(url, docid, token_counts, field_counts)
+            normalized = normalize_url(url)
+            if normalized is not None:
+                url_map.write(f"{normalized}\t{docid:012d}\n")
+            # Collect incoming anchor text in bounded on-disk batches
+            anchor_collector.add(anchors)
+            last_doc_offloaded += 1
 
-        if docid % 1000 == 0:       # Progress markers (delete later)
-            print(f"Indexed {docid} documents", flush=True)
 
-        if last_doc_offloaded >= offload:
-            offload_index(inverted_index, partial_index_file)
-            last_doc_offloaded = 0
+            if last_doc_offloaded >= offload:
+                offload_index(inverted_index, partial_index_file)
+                last_doc_offloaded = 0
     
     if inverted_index.index:
         offload_index(inverted_index, partial_index_file) # saves leftover pages after loop
+    partial_anchor_files = anchor_collector.finish()
+    inverted_index.save_documents()
     print(f"skipped {detector.exact_dups} exact duplicates and {detector.near_dups} near duplicates")
-    return inverted_index, partial_index_file
+    return inverted_index, partial_index_file, partial_anchor_files
 
 def offload_index(inverted_index, partial_index_file):
     path = f"partial_indexes_{len(partial_index_file)}.txt"
     inverted_index.save_index(path)
     partial_index_file.append(path)
-    inverted_index.save_documents()
     inverted_index.clear() 
 
 def merge_partial_indexes(partial_files, output_file):
+    # Use the bounded posting-level disk merge instead of loading entire token lines.
+    # Original merge comments are retained below for reference; the old method
+    # concatenated posting strings and could create large in-memory lines.
     # open every partial index file at once
-    files = [open(p, "r", encoding="utf-8") for p in partial_files]
-
     # read the first row of each file -> (token, postings)
-    current = [read_next(f) for f in files]
-
-    unique_tokens = 0
-    with open(output_file, "w", encoding="utf-8") as out:
-        while True:
-            # find the alphabetically smallest token among the current lines
-            tokens = [line[0] for line in current if line is not None]
-            if not tokens:
-                break # every file is finished
-            smallest = min(tokens)
-
-            # combine postings from every file whose current token is the smallest
-            # files are in docid order, so joining them in file order keeps postings sorted
-            merged = []
-            for i in range(len(files)):
-                if current[i] is not None and current[i][0] == smallest:
-                    merged.append(current[i][1])
-                    current[i] = read_next(files[i]) # move that file to its next line
-
-            out.write(smallest + " " + " ".join(merged) + "\n")
-            unique_tokens += 1
-
-    for f in files:
-        f.close()
-    return unique_tokens
+    # find the alphabetically smallest token among the current lines
+    # combine postings from every file whose current token is the smallest
+    # files are in docid order, so joining them in file order keeps postings sorted
+    return merge_main_partials(partial_files, output_file)
 
 def read_next(f):
     # read one line and split it into (token, postings). returns None at end of file
@@ -273,36 +268,46 @@ def report(num_docs, unique_tokens, index_file):
 
 
 def build_lexicon(index_file):
-    # Build a lexicon file so that we can find each token's location in the index file, 
+    # Build a lexicon file so that we can find each token's location in the index file,
     # without searching through the entire file --> avoids loading in the index in memory (Developer contraints)
     # A lexicon is a dictionary that maps each token to its location (byte offset) in the inverted index file.
     # lexicon = {"token1": 10} means token1's postings list start at byte position 18.
     # with the byte location, we can use .seek() to jump to that byte in the file to read.
-    lexicon = {}
-
     # open the index file with "rb" = read binary (so read it in binary mode (bytes instead of strings)
-    with open(index_file, "rb") as f:
-        while True:
-            # Get the current byte position
-            offset = f.tell()
-
-            # Read one line
-            line = f.readline()
-
-            # Stop at the end of the file
-            if not line:
-                break
-
-            # Extract the token before the first space.
-            token = line.split(b" ", 1)[0].decode("utf-8")
-
-            # Store token and its byte position
-            lexicon[token] = offset
-
+    # Get the current byte position
+    # Read one line
+    # Stop at the end of the file
+    # Extract the token before the first space.
+    # Store token and its byte position
     # Save lexicon to a JSON file
+    # Read fixed-size blocks so long posting lines do not fill RAM.
+    lexicon = {}
+    with open(index_file, "rb") as f:
+        position = 0
+        line_start = 0
+        token_bytes = bytearray()
+        reading_token = True
+        while True:
+            block = f.read(65536)
+            if not block:
+                break
+            for b in block:
+                if reading_token:
+                    if b == 32:
+                        lexicon[token_bytes.decode("utf-8")] = line_start
+                        token_bytes.clear()
+                        reading_token = False
+                    elif b == 10:
+                        token_bytes.clear()
+                        line_start = position + 1
+                    else:
+                        token_bytes.append(b)
+                elif b == 10:
+                    reading_token = True
+                    line_start = position + 1
+                position += 1
     with open("lexicon.json", "w", encoding="utf-8") as f:
         json.dump(lexicon, f)
-    
     return lexicon
 
 
