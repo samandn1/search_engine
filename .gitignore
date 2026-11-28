@@ -230,3 +230,9 @@ doc.json
 index.txt
 doc_lengths.json
 index.txt
+
+# Generated anchor indexing files
+partial_anchors_*.tsv
+anchor_index.txt
+index_base.txt
+url_doc_map.tsv
