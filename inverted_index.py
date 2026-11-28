@@ -183,7 +183,7 @@ def process_html(html, source_url):
     # Extract anchors from the same BeautifulSoup object (no second HTML parse)
     anchors = extract_anchors(soup, source_url, tokenize)
 
-    return tokens, field_counts, anchors
+    return tokens, field_counts, anchors, title_text
 
 
 
@@ -198,7 +198,8 @@ def build_index(folder_path, offload = 15000, anchor_batch_size = 25000):
     # Save accepted URL/docID pairs for disk-based anchor target matching 
     with open("url_doc_map.tsv", "w", encoding="utf-8") as url_map:
         for docid, url, content in read_data(folder_path):
-            tokens, field_counts, anchors = process_html(content, url) # get tokens and field-counts
+            tokens, field_counts, anchors, title_text = process_html(content, url) # get tokens and field-counts
+            inverted_index.titles[docid] = title_text[:100] # restrict to 100 char
             token_counts = {} # dictionary to keep track of each token's freq {"token": 1}
        
             for token in tokens:
