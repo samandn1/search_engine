@@ -38,6 +38,8 @@ class InvertedIndex:
         self.doc_lengths = {} # for cosine similarity
         # store docID to url
         self.doc = {}
+        # collect tiles of each url
+        self.titles = {}
 
     def add_posting(self, url, docID, token_counts, field_counts):
         self.doc[docID] = url
@@ -61,6 +63,8 @@ class InvertedIndex:
             json.dump(self.doc,f)
         with open("doc_lengths.json", "w", encoding="utf-8") as f:
             json.dump(self.doc_lengths, f)
+        with open("titles.json", "w", encoding="utf-8") as f:
+            json.dump(self.titles, f)
     
     def save_index(self, filename):
         # loop through every token and its posting list
@@ -150,6 +154,8 @@ def process_html(html, source_url):
         "b" : "bold",    # "b" and "strong" are categorized the same
         "strong" : "bold"
     }
+
+    title_text = field_tags['title'].get_text(strip=True) if field_tags['title'] else ''
 
     for tag_name, field in field_tags.items(): # loop through every html field tag type
         # find all occurances of the current field tag
