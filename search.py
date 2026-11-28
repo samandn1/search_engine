@@ -101,6 +101,7 @@ def rank(result, all_postings, num_docs, doc_lengths=None):
                 + 2 * fields.get("h2", 0)
                 + 1.5 * fields.get("h3", 0)
                 + 1 * fields.get("bold", 0)
+                + 2 * fields.get("anchor", 0)
             )
 
             # Logarithmic TF prevents repeated words from dominating
