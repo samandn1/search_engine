@@ -155,7 +155,8 @@ def process_html(html, source_url):
         "strong" : "bold"
     }
 
-    title_text = field_tags['title'].get_text(strip=True) if field_tags['title'] else ''
+    title_tag = soup.find('title')
+    title_text = title_tag.get_text(strip=True) if title_tag else ''
 
     for tag_name, field in field_tags.items(): # loop through every html field tag type
         # find all occurances of the current field tag

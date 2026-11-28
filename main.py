@@ -3,7 +3,7 @@ import search
 
 def main():
 
-    index, partial_index_files = inverted_index.build_index("/Users/gracysutaria/Documents/UCI/CS_121/DEV")
+    index, partial_index_files = inverted_index.build_index("DEV")
 
     unique_tokens = inverted_index.merge_partial_indexes(partial_index_files, "index.txt")
     index.save_documents()
@@ -23,7 +23,8 @@ def main():
 
     # Test search function
     #search.test_search()
-
+    print("Titles:", len(index.titles))
+    print("Documents:", len(index.doc))
     print("\nPostings for 'academia':")
     for posting in postings[:10]:
         print(
